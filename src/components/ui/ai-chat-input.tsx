@@ -91,9 +91,9 @@ function formatDuration(totalSeconds: number) {
 }
 
 const VOICE_ERRORS: Record<SpeechErrorCode, string | null> = {
-  unsupported: "این مرورگر از تبدیل گفتار پشتیبانی نمی‌کند؛ Chrome یا Edge را امتحان کن.",
+  unsupported: "این مرورگر از ضبط صدا پشتیبانی نمی‌کند.",
   "not-allowed": "دسترسی به میکروفون داده نشد. از تنظیمات مرورگر اجازه بده.",
-  network: "سرویس تشخیص گفتار در دسترس نیست؛ اینترنت (یا VPN) را بررسی کن.",
+  network: "تبدیل صدا به متن انجام نشد؛ دوباره تلاش کن.",
   "audio-capture": "میکروفونی پیدا نشد.",
   unknown: "ضبط صدا شروع نشد؛ دوباره تلاش کن.",
   "no-speech": null,
@@ -325,7 +325,13 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
     // ── Voice input (live speech-to-text) ──
     const [voiceError, setVoiceError] = useState<string | null>(null);
     const voiceBaseRef = useRef(""); // text that was in the box before recording
-    const { listening, start: startRecognition, stop: stopVoice } = useSpeechToText({
+    const {
+      listening,
+      transcribing,
+      start: startRecognition,
+      stop: stopVoice,
+      cancel: cancelVoice,
+    } = useSpeechToText({
       lang: speechLang,
       onUpdate: (committed, interim) => {
         const base = voiceBaseRef.current;
@@ -407,7 +413,7 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
     const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
       if (e.key === "Enter" && !e.shiftKey && !e.nativeEvent.isComposing) {
         e.preventDefault();
-        if (listening) stopVoice();
+        if (listening) cancelVoice();
         submit();
       }
       if (e.key === "Escape") setMenuOpen(false);
@@ -479,16 +485,25 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
               <RotatingPlaceholder
                 phrases={placeholders}
                 // Pauses the moment the box is focused: a fresh box, waiting for input
-                active={empty && !focused && !disabled && !listening}
+                active={empty && !focused && !disabled && !listening && !transcribing}
                 className="px-4 pt-3.5 text-[15px] leading-[26px]"
               />
             )}
             {/* Fresh state: focused + empty → just a small blinking brand caret */}
-            {empty && focused && !disabled && !listening && (
+            {empty && focused && !disabled && !listening && !transcribing && (
               <span
                 aria-hidden
                 className="pointer-events-none absolute start-4 top-[19px] h-4 w-0.5 rounded-full bg-brand animate-caret-blink"
               />
+            )}
+            {/* Recording stopped, final text on its way */}
+            {empty && !listening && transcribing && (
+              <div
+                aria-hidden
+                className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-3.5 text-[15px] leading-[26px] text-faint animate-in fade-in duration-300"
+              >
+                در حال تبدیل گفتار به متن…
+              </div>
             )}
             {/* Listening, nothing recognized yet */}
             {empty && listening && (

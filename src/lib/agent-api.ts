@@ -44,8 +44,15 @@ export async function startRun(body: StartRunBody): Promise<StartRunResponse> {
   return response.json();
 }
 
-/** Listen to a run's events until "done" or "error". Returns a function that stops listening. */
-export function streamRun(streamUrl: string, onEvent: (event: AgentEvent) => void): () => void {
+/**
+ * Listen to a run's events until "done" or "error". Returns a function that stops listening.
+ * `onConnection(false)` while a dropped connection is being retried, `true` once it's back.
+ */
+export function streamRun(
+  streamUrl: string,
+  onEvent: (event: AgentEvent) => void,
+  onConnection?: (connected: boolean) => void,
+): () => void {
   const source = new EventSource(`${API_URL}${streamUrl}`);
   source.onmessage = (message) => {
     const event = JSON.parse(message.data) as AgentEvent;
@@ -54,7 +61,15 @@ export function streamRun(streamUrl: string, onEvent: (event: AgentEvent) => voi
     if (event.event === "done" || event.event === "error") source.close();
   };
   // On a dropped connection EventSource reconnects by itself and the server resumes after the
-  // last event it sent (Last-Event-ID), so there is nothing to do in onerror.
+  // last event it sent (Last-Event-ID). We only tell the UI, and give up if the browser does.
+  source.onopen = () => onConnection?.(true);
+  source.onerror = () => {
+    if (source.readyState === EventSource.CLOSED) {
+      onEvent({ event: "error", message: "ارتباط با سرور قطع شد. دوباره تلاش کن." });
+    } else {
+      onConnection?.(false);
+    }
+  };
   return () => source.close();
 }
 
@@ -63,6 +78,7 @@ export function streamRun(streamUrl: string, onEvent: (event: AgentEvent) => voi
 export type HistoryStep = {
   id: string;
   tool: string;
+  args?: Record<string, unknown>;
   status: "running" | "done" | "failed";
   ui: Record<string, unknown> | null;
 };
@@ -93,4 +109,16 @@ export async function getChat(threadId: string): Promise<ChatDetail | null> {
   if (response.status === 404) return null;
   if (!response.ok) throw new Error("دریافت گفتگو ناموفق بود.");
   return response.json();
+}
+
+// ── Speech to text ──────────────────────────────────────────────────────
+
+/** The text spoken in a WAV recording (Whisper on the backend). */
+export async function transcribeAudio(wav: Blob): Promise<string> {
+  const form = new FormData();
+  form.append("audio", wav, "speech.wav");
+  const response = await fetch(`${API_URL}/api/agent/transcribe/`, { method: "POST", body: form });
+  if (!response.ok) throw new Error(`Transcription failed (${response.status})`);
+  const data: { text?: string } = await response.json();
+  return data.text ?? "";
 }

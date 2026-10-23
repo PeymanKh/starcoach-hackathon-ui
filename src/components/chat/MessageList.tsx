@@ -1,29 +1,12 @@
-import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
-import {
-  Check,
-  Copy,
-  Loader2,
-  Share2,
-  ThumbsDown,
-  ThumbsUp,
-  X,
-  Zap,
-} from "lucide-react";
+import { useCallback, useEffect, useState, type ReactNode } from "react";
+import { Check, Copy, Share2, ThumbsDown, ThumbsUp, Zap } from "lucide-react";
 import { cn } from "@/lib/cn";
-import type { AssistantMessage, ChatMessage, ToolStep } from "@/hooks/useAgentChat";
+import type { AssistantMessage, ChatMessage } from "@/hooks/useAgentChat";
+import { AgentStatus, type AgentState } from "@/components/chat/AgentStatus";
+import { ToolSteps } from "@/components/chat/ToolSteps";
 
-/** Persian labels for the agent's tools, shown as status chips while it works. */
-const TOOL_LABELS: Record<string, string> = {
-  explore_category: "بررسی دسته‌بندی",
-  search_products: "جستجوی محصولات",
-  get_product_details: "مشخصات محصول",
-  compare_products: "مقایسه‌ی محصولات",
-  find_alternatives: "پیدا کردن جایگزین",
-  find_stores: "پیدا کردن فروشگاه‌ها",
-  find_stores_by_category: "فروشگاه‌های این دسته",
-  get_store_details: "اطلاعات فروشگاه",
-  compare_stores: "مقایسه‌ی فروشگاه‌ها",
-};
+/** With nothing back after this long, say it's taking longer than usual. */
+const SLOW_START_MS = 15_000;
 
 /** Card markers like [[product:id]] become cards later; for now they are hidden, even half-typed. */
 function withoutMarkers(text: string) {
@@ -45,16 +28,10 @@ export function MessageList({
   shareUrl = null,
   className,
 }: MessageListProps) {
-  const endRef = useRef<HTMLDivElement>(null);
-
-  // Follow the answer as it streams in
-  useEffect(() => {
-    endRef.current?.scrollIntoView({ block: "end" });
-  }, [messages]);
-
+  // Scrolling lives in ChatArea, which also pins the prompt box under the messages.
   return (
-    <div className={cn("min-h-0 w-full overflow-y-auto", className)}>
-      <div className="mx-auto flex w-full max-w-[720px] flex-col gap-6 py-8">
+    <div className={cn("w-full", className)}>
+      <div className="flex w-full flex-col gap-6 py-8">
         {messages.map((m) =>
           m.role === "user" ? (
             <div
@@ -67,7 +44,6 @@ export function MessageList({
             <AssistantBubble key={m.id} message={m} shareUrl={shareUrl} />
           ),
         )}
-        <div ref={endRef} />
       </div>
     </div>
   );
@@ -80,27 +56,36 @@ function AssistantBubble({
   message: AssistantMessage;
   shareUrl: string | null;
 }) {
-  const text = withoutMarkers(message.text).trim();
-  const waiting =
-    message.status === "streaming" && !text && !message.thinking && message.steps.length === 0;
+  // Text said before a tool call ("let me search…") is hidden while the tools work: the steps
+  // show it better, and the next text replaces it anyway.
+  const narration = message.status === "streaming" && message.replaceText;
+  const text = narration ? "" : withoutMarkers(message.text).trim();
+  const toolRunning = message.steps.some((s) => s.status === "running");
+  // The real answer has started, not the "let me search…" said before a tool call.
+  const answering = !!text && !narration;
+  const slow = useTimePassed((message.startedAt ?? 0) + SLOW_START_MS, message.status === "streaming");
+  const state = agentState(message, { text, toolRunning, answering, slow });
 
   return (
-    <div className="flex flex-col gap-3">
-      {(message.steps.length > 0 || message.thinking) && (
-        <div className="flex flex-wrap gap-2">
-          {message.steps.map((step) => (
-            <StepChip key={step.id} step={step} />
-          ))}
-          {message.thinking && (
-            <span className="flex h-7 items-center gap-1.5 rounded-full glass px-3 text-xs text-dust">
-              <Loader2 className="size-3.5 animate-spin text-brand" />
-              در حال فکر کردن…
-            </span>
-          )}
-        </div>
+    <div className="flex flex-col gap-4">
+      {message.steps.length > 0 && (
+        <ToolSteps steps={message.steps} collapsible={answering && !toolRunning} />
       )}
 
-      {waiting && <span className="text-dust animate-pulse">…</span>}
+      {state && (
+        <AgentStatus
+          key={state}
+          state={state}
+          since={
+            // the counter only for real reasoning, not the gap between tools and the answer
+            state === "thinking" && message.thinking
+              ? message.thinkingSince
+              : state === "slow"
+                ? message.startedAt
+                : undefined
+          }
+        />
+      )}
 
       {text && <p className="whitespace-pre-wrap text-[15px] leading-[1.9] text-bone">{text}</p>}
 
@@ -117,16 +102,32 @@ function AssistantBubble({
   );
 }
 
-function StepChip({ step }: { step: ToolStep }) {
-  const label = TOOL_LABELS[step.tool] ?? step.tool;
-  return (
-    <span className="flex h-7 items-center gap-1.5 rounded-full glass px-3 text-xs text-dust">
-      {step.status === "running" && <Loader2 className="size-3.5 animate-spin text-brand" />}
-      {step.status === "done" && <Check className="size-3.5 text-bone" />}
-      {step.status === "failed" && <X className="size-3.5 text-brand" />}
-      {label}
-    </span>
-  );
+/**
+ * What the orb line under a streaming message says, or nothing: a running tool has its own
+ * orb in the steps, and once the answer is being written the text speaks for itself.
+ */
+function agentState(
+  message: AssistantMessage,
+  { text, toolRunning, answering, slow }: { text: string; toolRunning: boolean; answering: boolean; slow: boolean },
+): AgentState | null {
+  if (message.status !== "streaming") return null;
+  if (message.reconnecting) return "retrying";
+  if (toolRunning || answering) return null;
+  if (message.thinking) return "thinking";
+  // Between tool calls and the answer, the model is working on it.
+  if (message.steps.length > 0 || text) return "thinking";
+  return slow ? "slow" : "waiting";
+}
+
+/** Becomes true once the clock passes `at`, while `active`. */
+function useTimePassed(at: number, active: boolean) {
+  const [passed, setPassed] = useState(() => Date.now() >= at);
+  useEffect(() => {
+    if (!active) return;
+    const timer = window.setTimeout(() => setPassed(true), Math.max(0, at - Date.now()));
+    return () => window.clearTimeout(timer);
+  }, [at, active]);
+  return passed;
 }
 
 /** Under a finished answer, right to left: copy, like, dislike, share, credits. */
@@ -148,7 +149,7 @@ function MessageActions({ text, shareUrl }: { text: string; shareUrl: string | n
   };
 
   return (
-    <div className="-ms-1.5 flex items-center gap-0.5 text-faint">
+    <div className="-ms-1 flex items-center gap-0.5 text-faint">
       <ActionButton label={copied ? "کپی شد" : "کپی"} onClick={copy}>
         {copied ? <Check /> : <Copy />}
       </ActionButton>
@@ -173,10 +174,10 @@ function MessageActions({ text, shareUrl }: { text: string; shareUrl: string | n
       )}
       <span
         title="اعتبار مصرف‌شده برای این پاسخ"
-        className="ms-1.5 flex h-8 items-center gap-1.5 rounded-full bg-white/5 px-3 text-xs font-semibold text-dust"
+        className="ms-1.5 flex h-6 items-center gap-1 rounded-full bg-white/5 px-2.5 text-[11px] font-medium text-dust"
       >
         {CREDITS_PER_ANSWER.toLocaleString("fa-IR")} اعتبار
-        <Zap className="size-3.5 fill-current" />
+        <Zap className="size-3 fill-current" />
       </span>
     </div>
   );
@@ -201,8 +202,8 @@ function ActionButton({
       aria-label={label}
       aria-pressed={pressed}
       className={cn(
-        "grid size-8 cursor-pointer place-items-center rounded-lg transition-colors duration-200 hover:bg-white/5 hover:text-bone",
-        "[&_svg]:size-[17px] [&_svg]:[stroke-width:1.75]",
+        "grid size-7 cursor-pointer place-items-center rounded-md transition-colors duration-200 hover:bg-white/5 hover:text-bone",
+        "[&_svg]:size-[15px] [&_svg]:[stroke-width:1.5]",
         pressed && "text-bone",
       )}
     >

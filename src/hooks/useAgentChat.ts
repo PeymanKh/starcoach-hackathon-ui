@@ -6,6 +6,8 @@ export type ToolStep = {
   id: string;
   tool: string;
   status: "running" | "done" | "failed";
+  /** What the agent asked the tool for. */
+  args?: Record<string, unknown>;
   /** The tool's result, for cards. */
   ui: Record<string, unknown> | null;
 };
@@ -18,6 +20,12 @@ export type AssistantMessage = {
   text: string;
   steps: ToolStep[];
   thinking: boolean;
+  /** When the current thinking began, for the seconds counter. */
+  thinkingSince?: number;
+  /** When the message was sent, to notice a slow start. */
+  startedAt?: number;
+  /** The stream dropped and is reconnecting. */
+  reconnecting?: boolean;
   /**
    * The model called tools since its last text. Whatever it said before ("let me search…")
    * is replaced as soon as the next text starts, so the answer never mixes with it.
@@ -54,7 +62,7 @@ export function useAgentChat() {
       updateAssistant(id, (m) => {
         switch (event.event) {
           case "thinking":
-            return { ...m, thinking: true };
+            return { ...m, thinking: true, thinkingSince: m.thinking ? m.thinkingSince : Date.now() };
           case "token":
             return {
               ...m,
@@ -67,7 +75,10 @@ export function useAgentChat() {
               ...m,
               thinking: false,
               replaceText: true,
-              steps: [...m.steps, { id: event.id, tool: event.tool, status: "running", ui: null }],
+              steps: [
+                ...m.steps,
+                { id: event.id, tool: event.tool, status: "running", args: event.args, ui: null },
+              ],
             };
           case "tool_end":
             return {
@@ -77,9 +88,9 @@ export function useAgentChat() {
               ),
             };
           case "done":
-            return { ...m, thinking: false, status: "done" };
+            return { ...m, thinking: false, reconnecting: false, status: "done" };
           case "error":
-            return { ...m, thinking: false, status: "error", error: event.message };
+            return { ...m, thinking: false, reconnecting: false, status: "error", error: event.message };
         }
       });
       if (event.event === "done" || event.event === "error") setBusy(false);
@@ -100,6 +111,7 @@ export function useAgentChat() {
           text: "",
           steps: [],
           thinking: false,
+          startedAt: Date.now(),
           replaceText: false,
           status: "streaming",
         },
@@ -116,7 +128,14 @@ export function useAgentChat() {
         });
         threadIdRef.current = run.thread_id;
         setThreadId(run.thread_id);
-        stopStream.current = streamRun(run.stream_url, (event) => applyEvent(assistantId, event));
+        stopStream.current = streamRun(
+          run.stream_url,
+          (event) => applyEvent(assistantId, event),
+          (connected) =>
+            updateAssistant(assistantId, (m) =>
+              m.status === "streaming" ? { ...m, reconnecting: !connected } : m,
+            ),
+        );
       } catch (error) {
         const message = error instanceof Error ? error.message : "مشکلی پیش آمد.";
         updateAssistant(assistantId, (m) => ({ ...m, status: "error", error: message }));

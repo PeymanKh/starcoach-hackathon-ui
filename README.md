@@ -1,8 +1,9 @@
-# Torob Hackathon Challenge
+# Starcoach Hackathon Challenge – Frontend
 
 The chat interface for an AI in-person shopping assistant that helps you find products in physical stores in Tehran. It's Persian, right-to-left and built mobile-first.
 
 - Live: https://chat.peymankh.dev
+- API docs: https://api.peymankh.dev/api/docs/
 - Backend: https://github.com/PeymanKh/starcoach-hackathon
 
 ## Run locally

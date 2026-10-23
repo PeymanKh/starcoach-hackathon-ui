@@ -1,0 +1,319 @@
+@import "tailwindcss";
+@import "tw-animate-css";
+
+/* ───────────────────────────────────────────────
+   Design tokens — "Crimson on plum black"
+   Deep, slightly plum-tinted neutrals (never brown, never cold slate)
+   + one brand red used only where attention belongs.
+   ─────────────────────────────────────────────── */
+@theme {
+  --font-sans: "Vazirmatn", ui-sans-serif, system-ui, -apple-system, sans-serif;
+
+  /* surfaces (plum-tinted blacks) */
+  --color-ink: #0b090c;      /* page background */
+  --color-soot: #130f14;     /* sidebar card */
+  --color-ash: #1b161c;      /* elevated: modal, prompt box */
+  --color-smoke: #28212a;    /* hover / borders */
+
+  /* text */
+  --color-bone: #f5f2f4;     /* primary text */
+  --color-dust: #a69ca4;     /* secondary text (≥ 4.5:1 on ink) */
+  --color-faint: #736a72;    /* tertiary / dividers */
+
+  /* brand — crimson */
+  --color-brand: #f31e3a;
+  --color-brand-1: #ff5a73;  /* light tint: gradient start, hover */
+  --color-brand-2: #f31e3a;
+  --color-brand-3: #b80f26;  /* deep shade: gradient end, pressed */
+  --color-brand-ink: #1a0509; /* dark text on brand */
+
+  /* shadcn-style semantic aliases, so pasted shadcn / 21st.dev components
+     (bg-card, text-muted-foreground, border-border, ring-ring…) just work */
+  --color-background: var(--color-ink);
+  --color-foreground: var(--color-bone);
+  --color-card: var(--color-ash);
+  --color-card-foreground: var(--color-bone);
+  --color-popover: var(--color-ash);
+  --color-popover-foreground: var(--color-bone);
+  --color-primary: var(--color-brand);
+  --color-primary-foreground: var(--color-brand-ink);
+  --color-secondary: var(--color-smoke);
+  --color-secondary-foreground: var(--color-bone);
+  --color-muted: var(--color-smoke);
+  --color-muted-foreground: var(--color-dust);
+  --color-accent: var(--color-smoke);
+  --color-accent-foreground: var(--color-bone);
+  --color-border: var(--color-smoke);
+  --color-input: var(--color-smoke);
+  --color-ring: var(--color-brand);
+
+  --radius-xl: 0.875rem;
+  --radius-2xl: 1.125rem;
+  --radius-3xl: 1.5rem;
+
+  --ease-out-soft: cubic-bezier(0.22, 1, 0.36, 1);
+
+  /* "recording" ripple behind the mic button / dot */
+  --animate-rec-pulse: rec-pulse 1.6s ease-out infinite;
+  @keyframes rec-pulse {
+    0% {
+      transform: scale(1);
+      opacity: 0.55;
+    }
+    100% {
+      transform: scale(2.1);
+      opacity: 0;
+    }
+  }
+
+  /* fake caret for the typewriter placeholder */
+  --animate-caret-blink: caret-blink 1s steps(1, end) infinite;
+  @keyframes caret-blink {
+    0%,
+    50% {
+      opacity: 1;
+    }
+    50.01%,
+    100% {
+      opacity: 0;
+    }
+  }
+}
+
+@layer base {
+  html {
+    color-scheme: dark;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
+  }
+
+  body {
+    @apply bg-ink text-bone font-sans;
+    /* Persian script needs more leading than Latin */
+    line-height: 1.7;
+    /* Never track Persian text — it breaks letter joins */
+    letter-spacing: 0;
+  }
+
+  ::selection {
+    background: color-mix(in oklab, var(--color-brand) 35%, transparent);
+    color: var(--color-bone);
+  }
+
+  /* Thin, quiet scrollbars */
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--color-smoke) transparent;
+  }
+  *::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+  *::-webkit-scrollbar-thumb {
+    background: var(--color-smoke);
+    border-radius: 999px;
+  }
+  *::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--color-brand);
+    outline-offset: 2px;
+    border-radius: 0.5rem;
+  }
+
+  /* Focus handed back after a popup closes: keep it, but don't show the ring (see Modal) */
+  [data-quiet-focus]:focus-visible {
+    outline: none;
+  }
+}
+
+@layer components {
+  /* Prompt box textarea: scrollbar only shows on hover */
+  .prompt-scrollbar {
+    scrollbar-width: thin;
+    scrollbar-color: transparent transparent;
+  }
+  .prompt-scrollbar:hover {
+    scrollbar-color: var(--color-smoke) transparent;
+  }
+  .prompt-scrollbar::-webkit-scrollbar {
+    width: 4px;
+    height: 4px;
+  }
+  .prompt-scrollbar::-webkit-scrollbar-thumb {
+    background: transparent;
+    border-radius: 4px;
+  }
+  .prompt-scrollbar:hover::-webkit-scrollbar-thumb {
+    background: var(--color-smoke);
+  }
+}
+
+/* ───────────────────────────────────────────────
+   Popup content (Modal body). Plain <p>/<ul>/<ol>/<strong>/<a> just work;
+   Section / Term / Point / Callout come from components/ui/prose.tsx.
+   Brand red appears only on numbers, markers, key terms and links.
+   ─────────────────────────────────────────────── */
+@layer components {
+  .modal-prose {
+    font-size: 15px;
+    line-height: 2;
+    color: color-mix(in oklab, var(--color-bone) 84%, transparent);
+  }
+
+  /* vertical rhythm */
+  .modal-prose > * + *,
+  .prose-section > * + *,
+  .prose-callout > div > * + * {
+    margin-top: 0.875rem;
+  }
+  .modal-prose > .prose-section + .prose-section {
+    margin-top: 2rem;
+    padding-top: 2rem;
+    border-top: 1px solid color-mix(in oklab, white 6%, transparent);
+  }
+
+  /* numbered section heading */
+  .prose-section > h3 {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 17px;
+    font-weight: 700;
+    line-height: 1.6;
+    color: var(--color-bone);
+  }
+  .prose-section > h3 + * {
+    margin-top: 1rem;
+  }
+  .prose-num {
+    display: grid;
+    flex-shrink: 0;
+    place-items: center;
+    width: 1.875rem;
+    height: 1.875rem;
+    border-radius: 0.625rem;
+    font-size: 14px;
+    font-weight: 700;
+    line-height: 1;
+    color: var(--color-brand-1);
+    background: color-mix(in oklab, var(--color-brand) 14%, transparent);
+    box-shadow: inset 0 0 0 1px
+      color-mix(in oklab, var(--color-brand) 30%, transparent);
+  }
+
+  /* inline */
+  .modal-prose strong {
+    font-weight: 600;
+    color: var(--color-bone);
+  }
+  .modal-prose .prose-term {
+    background: none;
+    font-weight: 600;
+    color: var(--color-brand-1);
+  }
+  .modal-prose code {
+    direction: ltr;
+    unicode-bidi: isolate;
+    padding: 0.1em 0.45em;
+    border-radius: 0.375rem;
+    font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+    font-size: 0.82em;
+    color: var(--color-bone);
+    background: color-mix(in oklab, white 7%, transparent);
+  }
+  .modal-prose a {
+    font-weight: 600;
+    color: var(--color-brand-1);
+    text-decoration: underline;
+    text-decoration-color: color-mix(in oklab, var(--color-brand-1) 40%, transparent);
+    text-underline-offset: 5px;
+    transition: text-decoration-color 0.2s;
+  }
+  .modal-prose a:hover {
+    text-decoration-color: var(--color-brand-1);
+  }
+
+  /* lists — brand markers, a little air between items */
+  .modal-prose ul,
+  .modal-prose ol {
+    padding-inline-start: 1.25rem;
+  }
+  .modal-prose ul {
+    list-style: disc;
+  }
+  .modal-prose ol {
+    list-style: decimal;
+  }
+  .modal-prose li {
+    padding-inline-start: 0.375rem;
+  }
+  .modal-prose li + li {
+    margin-top: 0.5rem;
+  }
+  .modal-prose li::marker {
+    font-weight: 600;
+    color: var(--color-brand);
+  }
+
+  /* darker inset box: rules, tips, takeaways */
+  .prose-callout {
+    border-radius: 1rem;
+    padding: 1rem 1.25rem;
+    background: color-mix(in oklab, var(--color-ink) 65%, transparent);
+    border: 1px solid color-mix(in oklab, white 6%, transparent);
+  }
+  .prose-callout-label {
+    margin-bottom: 0.25rem;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--color-brand-1);
+  }
+}
+
+/* Scrolls, but shows no scrollbar (sidebar chat list) */
+@utility no-scrollbar {
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+  &::-webkit-scrollbar {
+    display: none;
+  }
+}
+
+@utility brand-gradient {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-brand-1) 0%,
+    var(--color-brand-2) 55%,
+    var(--color-brand-3) 100%
+  );
+}
+
+@utility brand-text {
+  background-image: linear-gradient(
+    135deg,
+    var(--color-brand-1) 0%,
+    var(--color-brand-2) 50%,
+    var(--color-brand-3) 100%
+  );
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+
+@utility glass {
+  background-color: color-mix(in oklab, white 4%, transparent);
+  border: 1px solid color-mix(in oklab, white 7%, transparent);
+}
+
+/* Location map: OpenStreetMap's light tiles turned dark to match the app (no API key needed).
+   Only the tiles are filtered, so the pin and controls keep their real colors. */
+.location-map .leaflet-tile-pane {
+  filter: invert(1) hue-rotate(180deg) brightness(0.9) contrast(0.85) saturate(0.6);
+}
+.location-map.leaflet-container {
+  background: var(--color-soot);
+  font-family: inherit;
+}

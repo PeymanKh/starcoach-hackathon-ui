@@ -21,11 +21,10 @@ export function LocationPicker({ open, initial, onClose, onSave }: LocationPicke
   }, [open]); // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <Modal open={open} onClose={onClose} title="لطفا موقعیت جغرافیایی خود را انتخاب کنید">
+    <Modal open={open} onClose={onClose} title="لوکیشن خود را انتخاب کنید">
       <p>
         این موقعیت جغرافیایی با هر پیام به ایجینت ارسال میشود، اما ایجینت آن را نمیبیند و فقط
-        برنامه برای پیشنهادها از آن استفاده میکند. این پاپ‌آپ برای تست در نظر گرفته شده اما در دنیای
-        واقعی میتوان بصورت اتوماتیک از موقعیت کاربر استفاده کرد.
+        برنامه برای پیشنهادها از آن استفاده میکند. این پاپ‌آپ برای تست در نظر گرفته شده.
       </p>
 
       <LocationMap value={draft} onChange={setDraft} className="h-64 sm:h-72" />

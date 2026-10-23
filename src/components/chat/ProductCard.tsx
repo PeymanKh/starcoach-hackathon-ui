@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { motion } from "motion/react";
 import { MapPin, Package, Shuffle, Store } from "lucide-react";
 import { cn } from "@/lib/cn";
@@ -90,8 +90,26 @@ export function ProductCard({ product, onAsk }: { product: ProductCardData; onAs
 
 /** Several options side by side, swipeable: compact cards that each lead to their stores. */
 export function ProductCarousel({ products, onAsk }: { products: ProductCardData[]; onAsk?: Ask }) {
+  const ref = useRef<HTMLDivElement>(null);
+
+  // Always start at the first card: the right edge, in Persian. Safari can snap a right-to-left
+  // carousel to its far end on first layout (and again when cards stream in), so put it back
+  // at the start, once now and once after Safari's own snapping has run.
+  useLayoutEffect(() => {
+    const el = ref.current;
+    if (!el) return;
+    el.scrollLeft = 0;
+    const frame = requestAnimationFrame(() => {
+      el.scrollLeft = 0;
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [products.length]);
+
   return (
-    <div className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-1 no-scrollbar sm:-mx-6 sm:scroll-px-6 sm:px-6">
+    <div
+      ref={ref}
+      dir="rtl"
+      className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-1 no-scrollbar sm:-mx-6 sm:scroll-px-6 sm:px-6">
       {products.map((product, i) => (
         <CompactProductCard key={product.id} product={product} index={i} onAsk={onAsk} />
       ))}

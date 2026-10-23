@@ -12,7 +12,7 @@ export const AGENT_STATES = {
   // The stream dropped and we reconnect with Last-Event-ID
   retrying: { look: { state: "retrying", variant: "surge" }, label: "ارتباط قطع شد، دوباره وصل می‌شوم…" },
   // A run that takes much longer than usual
-  slow: { look: { state: "working" }, label: "کمی بیشتر طول می‌کشد، هنوز روی آن کار می‌کنم…" },
+  slow: { look: { state: "background" }, label: "کمی بیشتر طول می‌کشد، هنوز روی آن کار می‌کنم…" },
 } satisfies Record<string, { look: OrbLook; label: string }>;
 
 export type AgentState = keyof typeof AGENT_STATES;

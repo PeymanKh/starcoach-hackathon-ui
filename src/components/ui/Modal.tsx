@@ -10,8 +10,8 @@ type ModalProps = {
   eyebrow?: string;
   title: string;
   children: ReactNode;
-  /** "wide" for long-form docs, "default" for short notes */
-  size?: "default" | "wide";
+  /** "default" for short notes, "wide" for long-form docs, "xl" for docs with live components */
+  size?: "default" | "wide" | "xl";
   className?: string;
 };
 
@@ -28,6 +28,8 @@ export function Modal({
   className,
 }: ModalProps) {
   const titleId = useId();
+  // The xl popup holds live chat cards: less padding on phones so they keep their real width.
+  const gutter = size === "xl" ? "px-4 sm:px-8" : "px-6 sm:px-8";
   const panelRef = useRef<HTMLDivElement>(null);
   const bodyRef = useRef<HTMLDivElement>(null);
   const lastActive = useRef<Element | null>(null);
@@ -90,7 +92,12 @@ export function Modal({
   return createPortal(
     <AnimatePresence>
       {open && (
-        <div className="pointer-events-none fixed inset-0 z-50 grid place-items-center p-4">
+        <div
+          className={cn(
+            "pointer-events-none fixed inset-0 z-50 grid place-items-center",
+            size === "xl" ? "p-3 sm:p-4" : "p-4",
+          )}
+        >
           {/* scrim — click-through while fading out so the next click isn't swallowed */}
           <motion.div
             aria-hidden
@@ -111,7 +118,7 @@ export function Modal({
             tabIndex={-1}
             className={cn(
               "relative flex max-h-[min(calc(100dvh_-_2rem),52rem)] w-full flex-col overflow-hidden rounded-3xl border border-white/8 bg-ash shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)] outline-none",
-              size === "wide" ? "max-w-2xl" : "max-w-lg",
+              size === "xl" ? "max-w-3xl" : size === "wide" ? "max-w-2xl" : "max-w-lg",
               className,
             )}
             initial={{ opacity: 0, scale: 0.96, y: 14, pointerEvents: "none" }}
@@ -125,7 +132,12 @@ export function Modal({
             />
 
             {/* header — stays put while the body scrolls */}
-            <header className="relative flex shrink-0 items-start justify-between gap-4 border-b border-white/6 px-6 pt-6 pb-5 sm:px-8 sm:pt-7">
+            <header
+              className={cn(
+                "relative flex shrink-0 items-start justify-between gap-4 border-b border-white/6 pt-6 pb-5 sm:pt-7",
+                gutter,
+              )}
+            >
               <div className="min-w-0">
                 {eyebrow && (
                   <p className="mb-1.5 text-xs font-semibold text-brand-1">
@@ -153,7 +165,10 @@ export function Modal({
             <div
               ref={bodyRef}
               tabIndex={-1}
-              className="modal-prose relative min-h-0 flex-1 overflow-y-auto overscroll-contain px-6 pt-6 pb-9 outline-none [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2rem),transparent)] sm:px-8"
+              className={cn(
+                "modal-prose relative min-h-0 flex-1 overflow-y-auto overscroll-contain pt-6 pb-9 outline-none [mask-image:linear-gradient(to_bottom,black_calc(100%_-_2rem),transparent)]",
+                gutter,
+              )}
             >
               {children}
             </div>

@@ -11,15 +11,18 @@ import { cn } from "@/lib/cn";
 export function Section({
   n,
   title,
+  id,
   children,
 }: {
   /** Shown in the badge, e.g. "۱" */
   n: string;
   title: string;
+  /** For linking to it: <a href="#id"> */
+  id?: string;
   children: ReactNode;
 }) {
   return (
-    <section className="prose-section">
+    <section id={id} className="prose-section">
       <h3>
         <span aria-hidden className="prose-num">
           {n}

@@ -253,7 +253,7 @@
     list-style: disc;
   }
   .modal-prose ol {
-    list-style: decimal;
+    list-style: persian;
   }
   .modal-prose li {
     padding-inline-start: 0.375rem;
@@ -264,6 +264,32 @@
   .modal-prose li::marker {
     font-weight: 600;
     color: var(--color-brand);
+  }
+
+  /* live components inside a popup (not-prose) keep their chat look */
+  .modal-prose .not-prose {
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--color-bone);
+  }
+  .modal-prose .not-prose :is(ul, ol) {
+    list-style: none;
+    padding: 0;
+  }
+  .modal-prose .not-prose li {
+    padding: 0;
+  }
+  .modal-prose .not-prose li + li {
+    margin-top: 0;
+  }
+  .modal-prose .not-prose a,
+  .modal-prose a.not-prose {
+    font-weight: inherit;
+    color: inherit;
+    text-decoration: none;
+  }
+  .modal-prose .not-prose strong {
+    color: inherit;
   }
 
   /* darker inset box: rules, tips, takeaways */

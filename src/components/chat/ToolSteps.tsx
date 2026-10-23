@@ -33,7 +33,7 @@ type ToolMeta = { running: string; label: string; icon: LucideIcon };
 const TOOL_LOOK: OrbLook = { state: "background", variant: "spiral" };
 
 /** Each tool's words while running and once done, and its icon. */
-const TOOLS: Record<string, ToolMeta> = {
+export const TOOLS: Record<string, ToolMeta> = {
   explore_category: {
     running: "در حال بررسی دسته‌بندی",
     label: "بررسی دسته‌بندی",

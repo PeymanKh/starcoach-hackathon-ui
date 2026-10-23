@@ -45,7 +45,7 @@ export const models: ModelOption[] = [
 /** Reasoning effort levels, cycled by the bars button. Order = low → high.
  *  The ids must match the backend's THINKING_LEVELS (apps/agents/llm.py). */
 export const efforts: EffortOption[] = [
-  { id: "low", label: "کم" },
-  { id: "medium", label: "متوسط" },
-  { id: "high", label: "زیاد" },
+  { id: "low", label: "کم", hint: "سریع‌تر، برای سؤال‌های ساده" },
+  { id: "medium", label: "متوسط", hint: "تعادل سرعت و دقت (پیش‌فرض)" },
+  { id: "high", label: "زیاد", hint: "دقیق‌تر برای مقایسه‌ها، کمی کندتر" },
 ];

@@ -13,6 +13,8 @@ import { LocationPicker } from "@/components/location/LocationPicker";
 import { DEFAULT_LOCATION } from "@/lib/location";
 
 const COLLAPSED_KEY = "starcoach:sidebar-collapsed";
+/** The browser tab's title on the home page; a chat page uses the chat's title. */
+const HOME_TITLE = "دستیار خرید حضوری ترب";
 
 function readCollapsed() {
   try {
@@ -54,6 +56,15 @@ export default function App() {
   useEffect(() => {
     if (!chat.busy) chatList.refresh();
   }, [chat.busy, chatList.refresh]);
+
+  // The tab's title: the chat's title (or its first message, before the list knows it).
+  const chatTitle = route.chatId
+    ? (chatList.chats.find((c) => c.id === route.chatId)?.title ??
+      chat.messages.find((m) => m.role === "user")?.text)
+    : null;
+  useEffect(() => {
+    document.title = chatTitle?.trim() || HOME_TITLE;
+  }, [chatTitle]);
 
   useEffect(() => {
     try {
@@ -114,7 +125,7 @@ export default function App() {
         type="button"
         onClick={() => setDrawerOpen(true)}
         aria-label="باز کردن منو"
-        className="fixed top-3 start-3 z-30 grid size-11 cursor-pointer place-items-center rounded-xl glass text-dust backdrop-blur-md transition-colors duration-200 hover:text-bone md:hidden"
+        className="fixed top-3 start-3 z-30 grid size-11 cursor-pointer place-items-center rounded-full glass text-dust backdrop-blur-md transition-colors duration-200 hover:text-bone md:hidden"
       >
         <Menu className="size-5" />
       </button>

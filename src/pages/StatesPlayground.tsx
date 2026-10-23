@@ -3,6 +3,10 @@ import { ArrowRight, RotateCcw } from "lucide-react";
 import { Orb, VARIANTS, type OrbLook } from "@/components/ui/thinking-orbs";
 import { AgentStatus, type AgentState } from "@/components/chat/AgentStatus";
 import { ToolSteps, type StepView } from "@/components/chat/ToolSteps";
+import { ProductCard, ProductCarousel, type ProductCardData } from "@/components/chat/ProductCard";
+import { StoreList, type StoreCardData, type VerifiedPrice } from "@/components/chat/StoreCard";
+import { AiCallScreen, CallSheet } from "@/components/chat/StoreCall";
+import { Markdown } from "@/components/chat/Markdown";
 
 /**
  * TEMPORARY design page at /playground: every agent state as a user message and the
@@ -10,6 +14,20 @@ import { ToolSteps, type StepView } from "@/components/chat/ToolSteps";
  */
 export default function StatesPlayground() {
   const since = useMountedAgo(3000);
+  // Card buttons send a follow-up message; here we just show what would be sent.
+  const [asked, setAsked] = useState<string | null>(null);
+  // Calling a store: the sheet, the live AI call, and prices confirmed by calls
+  const [calling, setCalling] = useState<{ store: StoreCardData; mode: "sheet" | "ai" } | null>(null);
+  const [verified, setVerified] = useState<Record<string, VerifiedPrice>>({});
+  const confirm = (result: VerifiedPrice) => {
+    if (calling) setVerified((all) => ({ ...all, [calling.store.id]: result }));
+    setCalling(null);
+  };
+  useEffect(() => {
+    if (!asked) return;
+    const timer = window.setTimeout(() => setAsked(null), 2500);
+    return () => window.clearTimeout(timer);
+  }, [asked]);
 
   return (
     <div className="h-dvh overflow-y-auto [scrollbar-gutter:stable_both-edges]">
@@ -26,6 +44,58 @@ export default function StatesPlayground() {
             برگشت به چت
           </a>
         </header>
+
+        <Scenario tag="markdown" note="هر چیزی که پرامپت اجازه می‌دهد: پررنگ، جدول با هدر قرمز، فهرست، مراحل" user="پرو مکس یا پرو؟ کدوم برای عکاسی بهتره؟">
+          <Markdown text={MARKDOWN_SAMPLE} />
+        </Scenario>
+
+        <Scenario tag="product card" note="یک محصول پیشنهاد شده: کارت کامل با قدم بعدی" user="آیفون ۱۵ پرو مکس زیر ۹۰ میلیون">
+          <ToolSteps steps={[SEARCH_DONE]} collapsible />
+          <Answer text="بهترین گزینه در بودجه‌ی شما این مدل است؛ در ۱۲ فروشگاه حضوری تهران موجود است:" />
+          <div className="mt-3">
+            <ProductCard product={CARD_PRODUCTS[0]} onAsk={setAsked} />
+          </div>
+          <Answer text="اگر بخواهید، فروشگاه‌های نزدیکتان را پیدا می‌کنم." />
+        </Scenario>
+
+        <Scenario tag="product carousel" note="چند گزینه: کارت‌های جمع‌وجور، کشیدنی" user="یه آیفون ۱۵ میخوام، چه گزینه‌هایی دارم؟">
+          <ToolSteps steps={[SEARCH_DONE]} collapsible />
+          <Answer text="چند گزینه با قیمت‌های مختلف پیدا کردم:" />
+          <div className="mt-3">
+            <ProductCarousel products={CARD_PRODUCTS} onAsk={setAsked} />
+          </div>
+        </Scenario>
+
+        <Scenario tag="product card · edge cases" note="بدون قیمت، بدون فروشنده، بدون عکس، اسم طولانی" user="این مدل رو کجا پیدا کنم؟">
+          <div className="flex flex-col gap-3">
+            <ProductCard product={NO_PRICE_PRODUCT} onAsk={setAsked} />
+            <ProductCard product={NO_IMAGE_PRODUCT} />
+          </div>
+        </Scenario>
+
+        <Scenario tag="store cards · find_stores" note="۴ سطح اعتبار قیمت، از به‌روز تا نامعتبر. فقط به‌روزها بدون استعلام‌اند؛ روی استعلام بزنید و بعد «ثبت» کنید تا سبز شود" user="آیفون ۱۵ پرو مکس، نزدیک من، قسطی">
+          <ToolSteps steps={[SEARCH_DONE, STORES_DONE]} collapsible />
+          <Answer text="این ۴ فروشگاه نزدیک شما این گوشی را دارند. قیمت فقط در اولی به‌روز است؛ برای بقیه قبل از رفتن استعلام بگیرید:" />
+          <div className="mt-3">
+            <StoreList
+              stores={RELIABILITY_STORES}
+              verified={verified}
+              onCall={(store) => setCalling({ store, mode: "sheet" })}
+            />
+          </div>
+        </Scenario>
+
+        <Scenario tag="store cards · compare_stores" note="مقایسه: برنده‌ها مشخص‌اند، گارانتی هم می‌آید" user="کدوم فروشگاه بهتره؟">
+          <ToolSteps steps={[COMPARE_DONE]} collapsible />
+          <Answer text="«فرورا رویس» ارزان‌تر است ولی «نیورا نیکین» نزدیک‌تر است و هر دو در یک پاساژند؛ می‌توانید هر دو را ببینید:" />
+          <div className="mt-3">
+            <StoreList stores={COMPARED_STORES} />
+          </div>
+        </Scenario>
+
+        <Scenario tag="store card · edge cases" note="نزدیک بسته شدن، همکف، بدون قیمت، بدون پاساژ، بدون ساعت کاری" user="الان کجا برم که باز باشه؟">
+          <StoreList stores={EDGE_STORES} />
+        </Scenario>
 
         <OrbGallery />
 
@@ -82,6 +152,32 @@ export default function StatesPlayground() {
           <Answer text={ANSWER} />
         </Scenario>
       </main>
+
+      {calling?.mode === "sheet" && (
+        <CallSheet
+          store={calling.store}
+          productName={CALL_PRODUCT}
+          onClose={() => setCalling(null)}
+          onAiCall={() => setCalling({ store: calling.store, mode: "ai" })}
+          onResult={confirm}
+        />
+      )}
+      {calling?.mode === "ai" && (
+        <AiCallScreen
+          store={calling.store}
+          productName={CALL_PRODUCT}
+          onClose={() => setCalling(null)}
+          onResult={confirm}
+        />
+      )}
+
+      {asked && (
+        <div className="fixed inset-x-0 bottom-6 z-50 flex justify-center px-4">
+          <p className="max-w-[90vw] truncate rounded-full bg-ash px-4 py-2 text-xs text-dust shadow-lg ring-1 ring-white/10">
+            ارسال می‌شد: <span className="text-bone">{asked}</span>
+          </p>
+        </div>
+      )}
     </div>
   );
 }
@@ -251,6 +347,162 @@ const PRODUCTS = [
   { id: "p4", persian_title: "گوشی اپل دو سیم (استوک) iPhone 15 Pro | حافظه 256 گیگابایت", main_image: `${IMG}XK/Rm/XKRmbGJz1MWsW4nm.webp`, lowest_price: 61_000_000 },
   { id: "p5", persian_title: "گوشی اپل دو سیم iPhone 15 (Not Active) | حافظه 128 گیگابایت", main_image: `${IMG}c1/c3/c1c30z4aSt4bzZVS.jpg`, lowest_price: 55_800_000 },
   { id: "p6", persian_title: "گوشی اپل (استوک) iPhone 15 Pro | حافظه 512 گیگابایت", main_image: `${IMG}0B/ur/0BurK8yyhf1A3lmO.webp`, lowest_price: 72_400_000 },
+];
+
+const MARKDOWN_SAMPLE = `بین این دو تا، فرق اصلی **دوربین و اندازه**ست:
+
+| | iPhone 15 Pro Max | iPhone 15 Pro |
+|---|---|---|
+| صفحه | ۶٫۷ اینچ | ۶٫۱ اینچ |
+| زوم دوربین | **۵ برابر** | ۳ برابر |
+| باتری | یه روز کامل | کمی کمتر |
+| شروع قیمت | ۸۴ و نیم میلیون | ۷۷ میلیون |
+
+اگه عکاسی برات مهمه، **پرو مکس** می‌ارزه. چرا؟
+- زوم ۵ برابر برای عکس از دور
+- باتری بیشتر برای یه روز بیرون بودن
+
+قبل از رفتن:
+1. با دکمه‌ی استعلام قیمت امروز رو بپرس
+2. طبقه و واحد رو از کارت ببین
+3. اگه قسطی می‌خوای، ترب‌پی رو چک کن`;
+
+const CARD_PRODUCTS: ProductCardData[] = PRODUCTS.map((p, i) => ({
+  ...p,
+  brand_name: "اپل",
+  category_name: "گوشی موبایل",
+  highest_price: [92_000_000, 81_500_000, 52_300_000, 66_000_000, 58_900_000, 79_000_000][i],
+  seller_count: [12, 7, 1, 4, 3, 2][i],
+}));
+
+const NO_PRICE_PRODUCT: ProductCardData = {
+  id: "np",
+  persian_title: "گوشی سامسونگ Galaxy S24 Ultra 5G (ویتنام) دو سیم کارت | حافظه 512 گیگابایت رم 12 گیگابایت",
+  brand_name: null,
+  category_name: "گوشی موبایل",
+  main_image: `${IMG}0B/ur/0BurK8yyhf1A3lmO.webp`,
+  lowest_price: null,
+  highest_price: null,
+  seller_count: 0,
+};
+
+const NO_IMAGE_PRODUCT: ProductCardData = {
+  id: "ni",
+  persian_title: "هدفون بی سیم شیائومی Redmi Buds 6 Active",
+  category_name: "هدفون، هدست و هندزفری",
+  main_image: null,
+  lowest_price: 1_450_000,
+  highest_price: 1_450_000,
+  seller_count: 5,
+};
+
+const AGO = (days: number) => ({ label: days <= 10 ? "fresh" : days <= 30 ? "recent" : days <= 180 ? "old" : "very_old", days_ago: days });
+
+const STORE_CARDS: StoreCardData[] = [
+  {
+    id: "s1",
+    name: "نیورا نیکین",
+    lat: 35.6889,
+    lon: 51.4174,
+    distance_km: 1.2,
+    address: "تهران، خیابان جمهوری، نرسیده به چهارراه شیخ هادی",
+    building: "پاساژ علاالدین 2",
+    floor: 4,
+    unit: "426",
+    opening: { state: "open", closes_at: "21:00", minutes_to_close: 250 },
+    payments: [{ provider: "ترب پی", channel: "in_person" }, { provider: "اسنپ پی", channel: "in_person" }],
+    fast_delivery: true,
+    price: { min: 84_500_000, max: 84_500_000, freshness: AGO(3) },
+  },
+  {
+    id: "s2",
+    name: "فرورا رویس",
+    lat: 35.689,
+    lon: 51.4172,
+    distance_km: 1.3,
+    address: "تهران، خیابان جمهوری، پاساژ علاالدین",
+    building: "پاساژ علاالدین 2",
+    floor: 6,
+    unit: "622",
+    opening: { state: "closed", opens_day: "sat", opens_at: "16:00", opens_today: true },
+    payments: [{ provider: "ترب پی", channel: "in_person" }],
+    price: { min: 82_900_000, max: 86_000_000, freshness: AGO(12) },
+  },
+  {
+    id: "s3",
+    name: "روین فریسا",
+    lat: 35.7425,
+    lon: 51.4361,
+    distance_km: 3.8,
+    address: "تهران، خیابان شریعتی، بالاتر از پل رومی",
+    building: "پاساژ میخک",
+    floor: 1,
+    unit: "40",
+    opening: { state: "unknown" },
+    price: { min: 79_000_000, max: 79_000_000, freshness: AGO(95) },
+  },
+];
+
+const CALL_PRODUCT = "آیفون ۱۵ پرو مکس ۲۵۶ گیگ";
+const PHONES = ["02126467180", "02176557624", "09396925523", "09370317595"];
+
+/** One store per reliability level, freshest first. */
+const RELIABILITY_STORES: StoreCardData[] = [
+  { ...STORE_CARDS[0], id: "r1", phone: PHONES[0], price: { min: 84_500_000, max: 84_500_000, freshness: AGO(3) } },
+  { ...STORE_CARDS[1], id: "r2", phone: PHONES[1], price: { min: 82_900_000, max: 86_000_000, freshness: AGO(19) } },
+  { ...STORE_CARDS[2], id: "r3", phone: PHONES[2], price: { min: 79_000_000, max: 79_000_000, freshness: AGO(64) } },
+  {
+    ...STORE_CARDS[2],
+    id: "r4",
+    name: "تک‌موبایل آریا",
+    building: "پاساژ چارسو",
+    floor: -1,
+    unit: "18",
+    distance_km: 2.4,
+    phone: PHONES[3],
+    opening: { state: "open", closes_at: "22:00", minutes_to_close: 300 },
+    payments: [{ provider: "ترب پی", channel: "in_person" }],
+    price: { min: 61_000_000, max: 61_000_000, freshness: AGO(240) },
+  },
+];
+
+const COMPARED_STORES: StoreCardData[] = [
+  {
+    ...STORE_CARDS[1],
+    warranties: ["شرکتی (18 ماه)"],
+    badges: { cheapest: true, same_mall_as_others: true },
+  },
+  {
+    ...STORE_CARDS[0],
+    warranties: ["آواژنگ (18 ماه)"],
+    badges: { nearest: true, open_now: true, same_mall_as_others: true },
+  },
+];
+
+const EDGE_STORES: StoreCardData[] = [
+  {
+    id: "e1",
+    name: "موبایل پارسیان",
+    lat: 35.7219,
+    lon: 51.4071,
+    distance_km: 0.45,
+    building: "مجتمع تجاری تیراژه",
+    floor: 0,
+    unit: "B12",
+    opening: { state: "open", closes_at: "20:30", minutes_to_close: 35 },
+    price: { min: 85_200_000, max: 85_200_000, freshness: AGO(1) },
+  },
+  {
+    id: "e2",
+    name: "دیجی‌سنتر نوین",
+    lat: 35.7578,
+    lon: 51.4103,
+    distance_km: 5.6,
+    address: "تهران، میرداماد، نبش خیابان شمس تبریزی، پلاک 112",
+    building: null,
+    opening: { state: "closed", opens_day: "sat", opens_at: "09:30", opens_today: false },
+    price: { min: null, max: null },
+  },
 ];
 
 const STORES = [

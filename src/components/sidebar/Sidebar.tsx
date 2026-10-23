@@ -71,7 +71,8 @@ export function Sidebar({
       <div className="relative flex h-full w-full flex-col overflow-hidden rounded-[28px] border border-white/8 bg-soot shadow-[0_30px_80px_-40px_rgba(0,0,0,0.9)]">
         {/* ── header ── */}
         {/* px-4 keeps the 36px tile centered in the 68px rail (16 + 18 = 34) */}
-        <div className="relative px-4 pt-3.5 pb-3">
+        {/* collapsed: tighter under the logo, so the first icon doesn't float far below it */}
+        <div className={cn("relative px-4 pt-3.5 transition-[padding] duration-300", isCollapsed ? "pb-1" : "pb-3")}>
           {/* rail-only row: the toggle is the first item when collapsed */}
           <motion.div
             initial={false}
@@ -87,7 +88,7 @@ export function Sidebar({
           </motion.div>
 
           <div className="flex items-center justify-between gap-2">
-            <Logo collapsed={isCollapsed} />
+            <Logo collapsed={isCollapsed} onClick={onNewChat} />
             <motion.div
               initial={false}
               animate={{ opacity: isCollapsed ? 0 : 1 }}
@@ -107,7 +108,7 @@ export function Sidebar({
         </div>
 
         {/* ── my location + the three hackathon buttons ── */}
-        <div className="relative mt-2 flex flex-col gap-1 px-3">
+        <div className={cn("relative flex flex-col gap-1 px-3", !isCollapsed && "mt-2")}>
           <button
             type="button"
             onClick={onOpenLocation}

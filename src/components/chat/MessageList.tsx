@@ -4,11 +4,14 @@ import { cn } from "@/lib/cn";
 import type { AssistantMessage, ChatMessage } from "@/hooks/useAgentChat";
 import { AgentStatus, type AgentState } from "@/components/chat/AgentStatus";
 import { ToolSteps } from "@/components/chat/ToolSteps";
+import { AnswerContent } from "@/components/chat/AnswerContent";
+import type { StoreCardData, VerifiedPrice } from "@/components/chat/StoreCard";
+import { AiCallScreen, CallSheet } from "@/components/chat/StoreCall";
 
 /** With nothing back after this long, say it's taking longer than usual. */
 const SLOW_START_MS = 15_000;
 
-/** Card markers like [[product:id]] become cards later; for now they are hidden, even half-typed. */
+/** The answer without its card markers, even half-typed ones: for copying and "is there text?". */
 function withoutMarkers(text: string) {
   return text.replace(/\[\[(?:product|store):[^\]]*\]\]/g, "").replace(/\[\[[^\]]*$/, "");
 }
@@ -18,6 +21,8 @@ const CREDITS_PER_ANSWER = 1;
 
 type MessageListProps = {
   messages: ChatMessage[];
+  /** Sends a follow-up, e.g. from a card's "stores near me" button */
+  onAsk: (text: string) => void;
   /** This chat's link, for the share button */
   shareUrl?: string | null;
   className?: string;
@@ -25,25 +30,89 @@ type MessageListProps = {
 
 export function MessageList({
   messages,
+  onAsk,
   shareUrl = null,
   className,
 }: MessageListProps) {
+  // Calling a store from its card: the options sheet, then maybe the live AI call.
+  const [calling, setCalling] = useState<{
+    store: StoreCardData;
+    productName: string;
+    mode: "sheet" | "ai";
+  } | null>(null);
+  // Prices confirmed by a call, by store id: the card turns green.
+  const [verified, setVerified] = useState<Record<string, VerifiedPrice>>({});
+  const confirm = (result: VerifiedPrice) => {
+    if (calling) setVerified((all) => ({ ...all, [calling.store.id]: result }));
+    setCalling(null);
+  };
+  const onCall = useCallback(
+    (store: StoreCardData, productName: string) => setCalling({ store, productName, mode: "sheet" }),
+    [],
+  );
+
   // Scrolling lives in ChatArea, which also pins the prompt box under the messages.
   return (
     <div className={cn("w-full", className)}>
       <div className="flex w-full flex-col gap-6 py-8">
         {messages.map((m) =>
           m.role === "user" ? (
-            <div
-              key={m.id}
-              className="max-w-[85%] self-start whitespace-pre-wrap rounded-2xl bg-brand px-4 py-2.5 text-[15px] text-white"
-            >
-              {m.text}
-            </div>
+            <UserBubble key={m.id} text={m.text} />
           ) : (
-            <AssistantBubble key={m.id} message={m} shareUrl={shareUrl} />
+            <AssistantBubble
+              key={m.id}
+              message={m}
+              shareUrl={shareUrl}
+              verified={verified}
+              onAsk={onAsk}
+              onCall={onCall}
+            />
           ),
         )}
+      </div>
+
+      {calling?.mode === "sheet" && (
+        <CallSheet
+          store={calling.store}
+          productName={calling.productName}
+          onClose={() => setCalling(null)}
+          onAiCall={() => setCalling({ ...calling, mode: "ai" })}
+          onResult={confirm}
+        />
+      )}
+      {calling?.mode === "ai" && (
+        <AiCallScreen
+          store={calling.store}
+          productName={calling.productName}
+          onClose={() => setCalling(null)}
+          onResult={confirm}
+        />
+      )}
+    </div>
+  );
+}
+
+/** The user's message, with a copy button under it (on hover on desktop, always on phones). */
+function UserBubble({ text }: { text: string }) {
+  const [copied, flashCopied] = useFlash();
+  const copy = () => {
+    navigator.clipboard?.writeText(text).then(flashCopied, () => {});
+  };
+  return (
+    <div className="group flex max-w-[85%] flex-col items-start gap-1 self-start">
+      <div className="whitespace-pre-wrap rounded-2xl bg-brand px-4 py-2.5 text-[15px] text-white">
+        {text}
+      </div>
+      <div
+        className={cn(
+          "text-faint transition-opacity duration-200",
+          "sm:opacity-0 sm:group-hover:opacity-100 sm:focus-within:opacity-100",
+          copied && "sm:opacity-100",
+        )}
+      >
+        <ActionButton label={copied ? "کپی شد" : "کپی"} onClick={copy}>
+          {copied ? <Check /> : <Copy />}
+        </ActionButton>
       </div>
     </div>
   );
@@ -52,17 +121,24 @@ export function MessageList({
 function AssistantBubble({
   message,
   shareUrl,
+  verified,
+  onAsk,
+  onCall,
 }: {
   message: AssistantMessage;
   shareUrl: string | null;
+  verified: Record<string, VerifiedPrice>;
+  onAsk: (text: string) => void;
+  onCall: (store: StoreCardData, productName: string) => void;
 }) {
   // Text said before a tool call ("let me search…") is hidden while the tools work: the steps
   // show it better, and the next text replaces it anyway.
   const narration = message.status === "streaming" && message.replaceText;
-  const text = narration ? "" : withoutMarkers(message.text).trim();
+  const raw = narration ? "" : message.text.trim(); // with card markers
+  const text = withoutMarkers(raw).trim();
   const toolRunning = message.steps.some((s) => s.status === "running");
-  // The real answer has started, not the "let me search…" said before a tool call.
-  const answering = !!text && !narration;
+  // The real answer has started (text or cards), not the "let me search…" before a tool call.
+  const answering = !!raw && !narration;
   const slow = useTimePassed((message.startedAt ?? 0) + SLOW_START_MS, message.status === "streaming");
   const state = agentState(message, { text, toolRunning, answering, slow });
 
@@ -87,9 +163,17 @@ function AssistantBubble({
         />
       )}
 
-      {text && <p className="whitespace-pre-wrap text-[15px] leading-[1.9] text-bone">{text}</p>}
+      {raw && (
+        <AnswerContent
+          text={raw}
+          results={message.steps}
+          verified={verified}
+          onAsk={onAsk}
+          onCall={onCall}
+        />
+      )}
 
-      {message.status === "done" && text && (
+      {message.status === "done" && raw && (
         <MessageActions text={text} shareUrl={shareUrl} />
       )}
 

@@ -10,7 +10,8 @@ import {
   type MouseEvent,
   type ReactNode,
 } from "react";
-import { Sparkles } from "lucide-react";
+import { createPortal } from "react-dom";
+import { Check, Sparkles } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { RotatingPlaceholder } from "./rotating-placeholder";
 import { MicVisualizer } from "./mic-visualizer";
@@ -49,6 +50,8 @@ export type ModelOption = {
 export type EffortOption = {
   id: string;
   label: string;
+  /** One line under the label in the mobile picker */
+  hint?: string;
 };
 
 export type PromptSubmitMeta = {
@@ -240,6 +243,98 @@ function EffortBarsIcon({ ratio }: { ratio: number }) {
 }
 
 // ----------------------------------------------------------------------
+// Mobile: pickers open as a bottom sheet instead of a dropdown / cycling
+// ----------------------------------------------------------------------
+const MOBILE_QUERY = "(max-width: 639px)";
+
+function useIsMobile() {
+  const [mobile, setMobile] = useState(() => window.matchMedia(MOBILE_QUERY).matches);
+  useEffect(() => {
+    const query = window.matchMedia(MOBILE_QUERY);
+    const onChange = () => setMobile(query.matches);
+    query.addEventListener("change", onChange);
+    return () => query.removeEventListener("change", onChange);
+  }, []);
+  return mobile;
+}
+
+type SheetOption = { id: string; label: string; hint?: string; icon: ReactNode };
+
+/** A bottom sheet with big, thumb-friendly rows: tap one to choose it. */
+function PickerSheet({
+  title,
+  options,
+  selectedId,
+  onSelect,
+  onClose,
+}: {
+  title: string;
+  options: SheetOption[];
+  selectedId: string;
+  onSelect: (id: string) => void;
+  onClose: () => void;
+}) {
+  useEffect(() => {
+    const onKey = (e: globalThis.KeyboardEvent) => e.key === "Escape" && onClose();
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    window.addEventListener("keydown", onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      window.removeEventListener("keydown", onKey);
+    };
+  }, [onClose]);
+
+  return createPortal(
+    <div role="dialog" aria-modal="true" aria-label={title} className="fixed inset-0 z-50 flex items-end">
+      <div
+        aria-hidden
+        onClick={onClose}
+        className="absolute inset-0 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200"
+      />
+      <div className="relative w-full rounded-t-3xl border-t border-white/8 bg-ash px-3 pt-2.5 pb-[max(1.25rem,env(safe-area-inset-bottom))] shadow-2xl animate-in slide-in-from-bottom duration-300">
+        <div aria-hidden className="mx-auto mb-3 h-1 w-10 rounded-full bg-white/15" />
+        <h2 className="mb-2 px-2 text-[15px] font-semibold text-bone">{title}</h2>
+        <div role="listbox" aria-label={title} className="flex flex-col gap-1">
+          {options.map((option) => {
+            const selected = option.id === selectedId;
+            return (
+              <button
+                key={option.id}
+                type="button"
+                role="option"
+                aria-selected={selected}
+                onClick={() => {
+                  onSelect(option.id);
+                  onClose();
+                }}
+                className={cn(
+                  "flex min-h-14 w-full cursor-pointer items-center gap-3 rounded-2xl px-3 py-2 text-start transition-colors active:scale-[0.99]",
+                  selected ? "bg-white/6" : "hover:bg-white/4",
+                )}
+              >
+                <span className="grid size-9 shrink-0 place-items-center rounded-xl bg-white/6 text-bone">
+                  {option.icon}
+                </span>
+                <span className="min-w-0 flex-1">
+                  {/* bdi: an English model name keeps its own direction but stays on the start side */}
+                  <span className="block text-[14px] font-medium text-bone">
+                    <bdi>{option.label}</bdi>
+                  </span>
+                  {option.hint && <span className="block text-[12px] leading-5 text-dust">{option.hint}</span>}
+                </span>
+                {selected && <Check aria-hidden className="size-4 shrink-0 text-brand" />}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+    </div>,
+    document.body,
+  );
+}
+
+// ----------------------------------------------------------------------
 // Main component
 // ----------------------------------------------------------------------
 export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
@@ -279,6 +374,9 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
     const effortRatio = efforts.length > 1 ? effortIndex / (efforts.length - 1) : 1;
 
     const [menuOpen, setMenuOpen] = useState(false);
+    // Phones: model and thinking level are chosen in a bottom sheet
+    const isMobile = useIsMobile();
+    const [sheet, setSheet] = useState<"model" | "effort" | null>(null);
     const [focused, setFocused] = useState(false);
     const rotating = !!placeholders && placeholders.length > 0;
     const empty = value.length === 0;
@@ -407,7 +505,8 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
 
     const cycleEffort = (e: MouseEvent) => {
       e.stopPropagation();
-      setEffortIndex((i) => (i + 1) % efforts.length);
+      if (isMobile) setSheet("effort");
+      else setEffortIndex((i) => (i + 1) % efforts.length);
     };
 
     const onKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
@@ -442,6 +541,33 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
 
     return (
       <div ref={setRefs} className={cn("relative w-full", className)}>
+        {sheet === "model" && selectedModel && (
+          <PickerSheet
+            title="انتخاب مدل"
+            options={models.map((m) => ({
+              id: m.id,
+              label: m.label,
+              icon: <ModelIcon model={m} className="size-4" />,
+            }))}
+            selectedId={selectedModel.id}
+            onSelect={setModelId}
+            onClose={() => setSheet(null)}
+          />
+        )}
+        {sheet === "effort" && effort && (
+          <PickerSheet
+            title="میزان تفکر"
+            options={efforts.map((option, i) => ({
+              id: option.id,
+              label: option.label,
+              hint: option.hint,
+              icon: <EffortBarsIcon ratio={efforts.length > 1 ? i / (efforts.length - 1) : 1} />,
+            }))}
+            selectedId={effort.id}
+            onSelect={(id) => setEffortIndex(Math.max(0, efforts.findIndex((o) => o.id === id)))}
+            onClose={() => setSheet(null)}
+          />
+        )}
         <div
           onMouseDown={(e) => {
             const target = e.target as HTMLElement;
@@ -551,7 +677,8 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
                   onMouseDown={keepFocus}
                   onClick={(e) => {
                     e.stopPropagation();
-                    setMenuOpen((o) => !o);
+                    if (isMobile) setSheet("model");
+                    else setMenuOpen((o) => !o);
                   }}
                   aria-haspopup="listbox"
                   aria-expanded={menuOpen}

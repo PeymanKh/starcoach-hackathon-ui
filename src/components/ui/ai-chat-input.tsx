@@ -601,7 +601,7 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
               rows={1}
               style={{ height: TEXTAREA_MIN, transition: "height 0.15s ease-out" }}
               className={cn(
-                "prompt-scrollbar block w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-[15px] leading-[26px] text-bone outline-none placeholder:text-faint",
+                "prompt-scrollbar block w-full resize-none bg-transparent px-4 pt-3.5 pb-1 text-base leading-[26px] text-bone outline-none sm:text-[15px] placeholder:text-faint",
                 isScrolling ? "overflow-y-auto" : "overflow-y-hidden",
                 // Orange native caret; hidden while empty so the small fake caret stands in
                 empty ? "caret-transparent" : "caret-brand",
@@ -612,7 +612,7 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
                 phrases={placeholders}
                 // Pauses the moment the box is focused: a fresh box, waiting for input
                 active={empty && !focused && !disabled && !listening && !transcribing}
-                className="px-4 pt-3.5 text-[15px] leading-[26px]"
+                className="px-4 pt-3.5 text-base leading-[26px] sm:text-[15px]"
               />
             )}
             {/* Fresh state: focused + empty → just a small blinking brand caret */}
@@ -626,7 +626,7 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
             {empty && !listening && transcribing && (
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-3.5 text-[15px] leading-[26px] text-faint animate-in fade-in duration-300"
+                className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-3.5 text-base leading-[26px] text-faint sm:text-[15px] animate-in fade-in duration-300"
               >
                 در حال تبدیل گفتار به متن…
               </div>
@@ -635,7 +635,7 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
             {empty && listening && (
               <div
                 aria-hidden
-                className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-3.5 text-[15px] leading-[26px] text-faint animate-in fade-in duration-300"
+                className="pointer-events-none absolute inset-x-0 top-0 px-4 pt-3.5 text-base leading-[26px] text-faint sm:text-[15px] animate-in fade-in duration-300"
               >
                 بگو، دارم گوش می‌دم…
               </div>
@@ -693,7 +693,8 @@ export const PromptInput = forwardRef<HTMLDivElement, PromptInputProps>(
                     model={selectedModel}
                     className="size-3.5 opacity-70 transition-opacity group-hover:opacity-100"
                   />
-                  <span className="text-xs font-semibold select-none">
+                  {/* very narrow phones: the logo alone (the sheet lists the names) */}
+                  <span className="text-xs font-semibold select-none max-[379px]:hidden">
                     <MorphingText text={selectedModel.label} />
                   </span>
                 </button>

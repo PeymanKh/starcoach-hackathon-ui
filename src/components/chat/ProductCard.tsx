@@ -91,7 +91,7 @@ export function ProductCard({ product, onAsk }: { product: ProductCardData; onAs
 /** Several options side by side, swipeable: compact cards that each lead to their stores. */
 export function ProductCarousel({ products, onAsk }: { products: ProductCardData[]; onAsk?: Ask }) {
   return (
-    <div className="-mx-4 flex snap-x snap-mandatory gap-3 overflow-x-auto px-4 pb-1 no-scrollbar">
+    <div className="-mx-5 flex snap-x snap-mandatory scroll-px-5 gap-3 overflow-x-auto px-5 pb-1 no-scrollbar sm:-mx-6 sm:scroll-px-6 sm:px-6">
       {products.map((product, i) => (
         <CompactProductCard key={product.id} product={product} index={i} onAsk={onAsk} />
       ))}

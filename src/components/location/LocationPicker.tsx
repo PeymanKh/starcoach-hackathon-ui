@@ -27,7 +27,8 @@ export function LocationPicker({ open, initial, onClose, onSave }: LocationPicke
         برنامه برای پیشنهادها از آن استفاده میکند. این پاپ‌آپ برای تست در نظر گرفته شده.
       </p>
 
-      <LocationMap value={draft} onChange={setDraft} className="h-64 sm:h-72" />
+      {/* short phones: the map shrinks, so the inputs and the save button stay on screen */}
+      <LocationMap value={draft} onChange={setDraft} className="h-[min(16rem,32dvh)] sm:h-72" />
 
       <div className="grid grid-cols-2 gap-3">
         <CoordinateInput
@@ -93,7 +94,7 @@ function CoordinateInput({
           if (e.target.value.trim() !== "" && isValid(n)) onChange(n);
         }}
         aria-invalid={invalid}
-        className="h-10 rounded-xl border border-white/8 bg-soot px-3 text-[14px] tabular-nums text-bone outline-none transition-colors focus:border-brand/50 aria-[invalid=true]:border-brand"
+        className="h-10 rounded-xl border border-white/8 bg-soot px-3 text-base tabular-nums text-bone outline-none sm:text-[14px] transition-colors focus:border-brand/50 aria-[invalid=true]:border-brand"
       />
     </label>
   );

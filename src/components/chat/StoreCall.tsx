@@ -187,7 +187,7 @@ function SelfCallChecklist({
               value={newPrice}
               onChange={(e) => setNewPrice(e.target.value)}
               placeholder="مثلاً ۸۶٫۵"
-              className="min-w-0 flex-1 bg-transparent text-[14px] text-bone outline-none placeholder:text-faint"
+              className="min-w-0 flex-1 bg-transparent text-base text-bone outline-none sm:text-[14px] placeholder:text-faint"
             />
             <span className="text-[12px] text-faint">میلیون تومان</span>
           </label>

@@ -87,6 +87,14 @@
     text-rendering: optimizeLegibility;
   }
 
+  /* The page itself never scrolls sideways (wide tables and carousels scroll on their own) */
+  html,
+  body {
+    overflow-x: clip;
+    /* no rubber-band bounce of the whole page on iPhone: only the chat itself scrolls */
+    overscroll-behavior: none;
+  }
+
   body {
     @apply bg-ink text-bone font-sans;
     /* Persian script needs more leading than Latin */

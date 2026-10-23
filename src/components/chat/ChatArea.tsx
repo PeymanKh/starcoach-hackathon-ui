@@ -103,14 +103,19 @@ export function ChatArea({
       <div
         ref={scrollRef}
         onScroll={onScroll}
-        // stable gutters: the scrollbar never shifts the centered column
-        className="min-h-0 flex-1 overflow-y-auto [scrollbar-gutter:stable_both-edges]"
+        // stable gutters: the scrollbar never shifts the centered column.
+        // The home page fits the screen: it doesn't scroll (or bounce, on iPhone) at all.
+        className={cn(
+          "min-h-0 flex-1 [scrollbar-gutter:stable_both-edges]",
+          empty ? "overflow-hidden" : "overflow-y-auto overscroll-y-contain",
+        )}
       >
         <div
           ref={contentRef}
           className={cn(
-            "mx-auto flex min-h-full w-full flex-col px-4 sm:px-6",
-            empty ? "max-w-[648px] justify-center pb-16" : "max-w-[768px]",
+            "mx-auto flex min-h-full w-full flex-col px-5 sm:px-6",
+            // phones: the first message starts below the floating menu button
+            empty ? "max-w-[648px] justify-center pb-16" : "max-w-[768px] pt-8 md:pt-0",
           )}
         >
           {empty ? (

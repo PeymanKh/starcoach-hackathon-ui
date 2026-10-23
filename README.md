@@ -1,6 +1,6 @@
-# Torob In-Person Shopping Assistant (UI)
+# Torob Hackathon Challenge
 
-The chat interface for an AI shopping assistant that helps you find products in physical stores in Tehran. It's Persian, right-to-left and built mobile-first.
+The chat interface for an AI in-person shopping assistant that helps you find products in physical stores in Tehran. It's Persian, right-to-left and built mobile-first.
 
 - Live: https://chat.peymankh.dev
 - Backend: https://github.com/PeymanKh/starcoach-hackathon
